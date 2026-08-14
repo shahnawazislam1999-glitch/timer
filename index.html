@@ -1,0 +1,2838 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#000000">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <link rel="manifest" href="./manifest.webmanifest">
+    <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
+    <link rel="apple-touch-icon" href="./icons/icon-192.png">
+    <title>Face & Body Presence Timer</title>
+    <style>
+    :root {
+        --bg: #000000;
+        --panel: #080808;
+        --panel-2: #0d0d0d;
+        --border: #222222;
+        --text: #ffffff;
+        --muted: #8a8a8a;
+        --accent: #7c4dff;
+        --green: #35d07f;
+        --red: #ff5570;
+        --blue: #4da3ff;
+    }
+
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        -webkit-tap-highlight-color: transparent;
+        font-family: -apple-system, BlinkMacSystemFont, "Roboto",
+                     "Segoe UI", sans-serif;
+    }
+
+    html, body {
+        width: 100%;
+        min-height: 100%;
+        background: #000000 !important;
+        color: var(--text);
+    }
+
+    body {
+        min-height: 100vh;
+        padding: 18px;
+        display: flex;
+        justify-content: center;
+        background: #000000 !important;
+    }
+
+    .container {
+        width: 100%;
+        max-width: 560px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+    }
+
+    .topbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 4px 2px 10px;
+    }
+
+    .brand {
+        font-size: 1.05rem;
+        font-weight: 700;
+        letter-spacing: .4px;
+    }
+
+    .subtitle {
+        color: var(--muted);
+        font-size: .75rem;
+        margin-top: 3px;
+    }
+
+    .timer-display {
+        background: #000000;
+        border: 1px solid var(--border);
+        border-radius: 22px;
+        padding: 30px 18px 26px;
+        text-align: center;
+    }
+
+    .time {
+        font-size: clamp(3.2rem, 15vw, 5.3rem);
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: 1px;
+        line-height: 1;
+        margin-bottom: 18px;
+    }
+
+    .day-left {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        width: 100%;
+        gap: 10px;
+        margin-top: -2px;
+        color: #fff;
+        font-variant-numeric: tabular-nums;
+        font-size: clamp(.95rem, 4vw, 1.35rem);
+        font-weight: 600;
+        letter-spacing: .3px;
+    }
+
+    .current-clock {
+        min-width: 8.5ch;
+        text-align: left;
+        color: #fff;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+    }
+
+    .day-left-value {
+        min-width: 8.5ch;
+        text-align: right;
+    }
+
+    .status-pill {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        max-width: 100%;
+        padding: 7px 13px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        font-size: .82rem;
+        font-weight: 600;
+        background: #080808;
+        color: var(--muted);
+    }
+
+    .status-pill.running {
+        color: var(--green);
+        border-color: rgba(53,208,127,.35);
+    }
+
+    .status-pill.paused {
+        color: var(--red);
+        border-color: rgba(255,85,112,.35);
+    }
+
+    .status-pill.idle {
+        color: #c6a9ff;
+        border-color: rgba(124,77,255,.35);
+    }
+
+    .video-wrapper {
+        position: relative;
+        width: 100%;
+        aspect-ratio: 3 / 4;
+        background: #000000;
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        overflow: hidden;
+    }
+
+    video, canvas {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        position: absolute;
+        inset: 0;
+    }
+
+    canvas {
+        z-index: 10;
+    }
+
+    .camera-hidden .video-wrapper {
+        display: none;
+    }
+
+    .confidence-indicator {
+        position: absolute;
+        left: 12px;
+        bottom: 12px;
+        z-index: 20;
+        padding: 6px 9px;
+        border-radius: 8px;
+        background: rgba(0,0,0,.78);
+        color: #ddd;
+        font-size: .75rem;
+        border: 1px solid #252525;
+    }
+
+    .card {
+        background: #000000;
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 14px;
+    }
+
+    .section-title {
+        color: #fff;
+        font-size: .85rem;
+        font-weight: 700;
+        margin-bottom: 10px;
+    }
+
+    .section-title-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 10px;
+    }
+
+    .section-title-row .section-title {
+        margin-bottom: 0;
+    }
+
+    .section-refresh-btn {
+        width: 34px;
+        min-height: 34px;
+        height: 34px;
+        padding: 0;
+        flex: 0 0 auto;
+        border-radius: 9px;
+        border: 1px solid #2a2a2a;
+        background: #080808;
+        color: #aaa;
+        font-size: 19px;
+        line-height: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .section-refresh-btn:active {
+        background: #151515;
+        color: #fff;
+        transform: rotate(90deg);
+    }
+
+    .history {
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+        max-height: 220px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding-right: 4px;
+        scrollbar-width: thin;
+        overscroll-behavior: contain;
+    }
+
+    .history::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .history::-webkit-scrollbar-track {
+        background: #080808;
+        border-radius: 999px;
+    }
+
+    .history::-webkit-scrollbar-thumb {
+        background: #333;
+        border-radius: 999px;
+    }
+
+
+    .toggle-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 9px 0;
+    }
+
+    .toggle-label {
+        font-size: .9rem;
+    }
+
+    .toggle-help {
+        color: var(--muted);
+        font-size: .72rem;
+        margin-top: 3px;
+    }
+
+    .alarm-active {
+        color: #ff5b6e !important;
+        border-color: rgba(255,85,112,.65) !important;
+        box-shadow: 0 0 0 2px rgba(255,85,112,.10);
+    }
+
+    .alarm-status {
+        margin-top: 8px;
+        padding: 8px 10px;
+        border-radius: 10px;
+        background: #090909;
+        border: 1px solid #202020;
+        color: #777;
+        font-size: .72rem;
+        line-height: 1.35;
+    }
+
+    .switch {
+        position: relative;
+        width: 48px;
+        height: 28px;
+        flex: 0 0 auto;
+    }
+
+    .switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+
+    .slider {
+        position: absolute;
+        inset: 0;
+        border: 1px solid #333;
+        background: #111;
+        border-radius: 999px;
+        cursor: pointer;
+        transition: .2s;
+    }
+
+    .slider::before {
+        content: "";
+        position: absolute;
+        width: 20px;
+        height: 20px;
+        left: 3px;
+        top: 3px;
+        background: #777;
+        border-radius: 50%;
+        transition: .2s;
+    }
+
+    .switch input:checked + .slider {
+        background: var(--accent);
+        border-color: var(--accent);
+    }
+
+    .switch input:checked + .slider::before {
+        transform: translateX(20px);
+        background: white;
+    }
+
+    .controls {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+    }
+
+    button {
+        width: 100%;
+        min-height: 50px;
+        padding: 13px 12px;
+        border-radius: 14px;
+        border: 1px solid var(--border);
+        font-size: .9rem;
+        font-weight: 700;
+        letter-spacing: .2px;
+        color: white;
+        background: #0b0b0b;
+        cursor: pointer;
+        touch-action: manipulation;
+    }
+
+    button:active {
+        transform: scale(.99);
+    }
+
+    button:disabled {
+        opacity: .5;
+        cursor: not-allowed;
+    }
+
+    .btn-primary {
+        background: var(--accent);
+        border-color: var(--accent);
+    }
+
+    .btn-danger {
+        background: #271016;
+        border-color: rgba(255,85,112,.5);
+        color: #ff8a9c;
+    }
+
+    .btn-secondary {
+        background: #080808;
+    }
+
+    .full-width {
+        grid-column: 1 / -1;
+    }
+
+    .stats-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+    }
+
+    .stat {
+        background: #050505;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 12px;
+    }
+
+    .stat-label {
+        color: var(--muted);
+        font-size: .72rem;
+        margin-bottom: 6px;
+    }
+
+    .stat-value {
+        font-size: 1.25rem;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .history-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 9px 0;
+        border-bottom: 1px solid #151515;
+        font-size: .78rem;
+    }
+
+    .history-row:last-child {
+        border-bottom: 0;
+    }
+
+    .history-date {
+        color: #bbb;
+    }
+
+    .history-time {
+        font-variant-numeric: tabular-nums;
+        font-weight: 700;
+    }
+
+    .study-summary {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-bottom: 10px;
+    }
+
+    .study-summary-card {
+        background: #050505;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 12px;
+    }
+
+    .study-summary-label {
+        color: var(--muted);
+        font-size: .72rem;
+        margin-bottom: 6px;
+    }
+
+    .study-summary-value {
+        font-size: 1.15rem;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .daily-history {
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+        max-height: 320px;
+        overflow-y: auto;
+        padding-right: 4px;
+    }
+
+    .daily-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 10px 0;
+        border-bottom: 1px solid #151515;
+    }
+
+    .daily-row:last-child { border-bottom: 0; }
+
+    .daily-date {
+        font-size: .82rem;
+        font-weight: 700;
+    }
+
+    .daily-date-sub {
+        color: #666;
+        font-size: .7rem;
+        margin-top: 3px;
+    }
+
+    .daily-duration {
+        font-size: .9rem;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+    }
+
+    .daily-empty {
+        color: #666;
+        font-size: .78rem;
+        padding: 6px 0;
+    }
+
+    .section-reset-btn {
+        min-height: 34px;
+        height: 34px;
+        padding: 0 11px;
+        flex: 0 0 auto;
+        border-radius: 9px;
+        border: 1px solid rgba(255,85,112,.38);
+        background: #16090c;
+        color: #ff8a9c;
+        font-size: .72rem;
+        font-weight: 700;
+        line-height: 1;
+    }
+
+    .section-reset-btn:active {
+        background: #271016;
+        color: #fff;
+    }
+
+    .data-backup-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-top: 10px;
+    }
+
+    .data-backup-help {
+        color: #777;
+        font-size: .72rem;
+        line-height: 1.5;
+        margin-top: 2px;
+    }
+
+    .data-backup-input {
+        display: none;
+    }
+
+    @media (max-width: 520px) {
+        .data-backup-actions {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    #errorEl {
+        border: 1px solid rgba(255,85,112,.45);
+    }
+
+    .permission-note {
+        text-align: center;
+        color: #666;
+        font-size: .72rem;
+        line-height: 1.4;
+        padding: 2px 8px;
+    }
+
+    @media (max-width: 420px) {
+        body { padding: 12px; }
+        .controls { grid-template-columns: 1fr; }
+        .full-width { grid-column: auto; }
+    }
+
+    .timer-display {
+        position: relative;
+    }
+
+    .timer-fullscreen-btn {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        width: 34px;
+        min-height: 34px;
+        height: 34px;
+        padding: 0;
+        border-radius: 9px;
+        border: 1px solid #2a2a2a;
+        background: #080808;
+        color: #aaa;
+        font-size: 18px;
+        line-height: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 5;
+    }
+
+    .timer-fullscreen-btn:active {
+        background: #151515;
+        color: #fff;
+    }
+
+    .status-outside {
+        display: flex;
+        justify-content: center;
+        min-height: 1px;
+        margin-top: -4px;
+        margin-bottom: 2px;
+    }
+
+    body.timer-native-fullscreen {
+        overflow: hidden;
+        width: 100%;
+        height: 100%;
+        padding: 0;
+    }
+
+    /* When only the timer box is fullscreen, make it fill the viewport. */
+    .timer-display.timer-fullscreen-active {
+        position: fixed;
+        inset: 0;
+        z-index: 99999;
+        width: 100vw;
+        height: 100vh;
+        max-width: none;
+        border-radius: 0;
+        border: 0;
+        background: #000;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        margin: 0;
+    }
+
+    .timer-display.timer-fullscreen-active .time {
+        width: 100%;
+        text-align: center;
+        font-size: clamp(4rem, 18vw, 10rem);
+    }
+
+    .timer-display.timer-fullscreen-active .day-left {
+        width: min(100%, 900px);
+        justify-content: space-between;
+        margin-top: 18px;
+        padding-left: max(4px, env(safe-area-inset-left));
+        padding-right: max(4px, env(safe-area-inset-right));
+        font-size: clamp(1.1rem, 5vw, 1.8rem);
+    }
+
+    .timer-display.timer-fullscreen-active .current-clock {
+        text-align: left;
+    }
+
+    .timer-display.timer-fullscreen-active .day-left-value {
+        text-align: right;
+    }
+
+    .timer-display.timer-fullscreen-active .timer-fullscreen-btn {
+        top: max(14px, env(safe-area-inset-top));
+        right: max(14px, env(safe-area-inset-right));
+    }
+
+
+    .install-app-btn {
+        width: 100%;
+        min-height: 52px;
+        border: 1px solid rgba(124,77,255,.55);
+        border-radius: 14px;
+        background: linear-gradient(135deg,#120c24,#0b0715);
+        color: #eee;
+        font-size: .9rem;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        box-shadow: 0 8px 24px rgba(0,0,0,.25);
+    }
+    .install-app-btn img {
+        width: 30px;
+        height: 30px;
+        border-radius: 8px;
+    }
+    .install-app-btn:active { transform: scale(.99); }
+
+    .developer-contact-btn {
+        width: 100%;
+        min-height: 46px;
+        border: 1px solid #173f2b;
+        border-radius: 13px;
+        background: #06130c;
+        color: #6ee7a2;
+        font-size: .86rem;
+        font-weight: 700;
+        letter-spacing: .1px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
+
+    .developer-contact-btn:active {
+        background: #0a2114;
+        transform: scale(.99);
+    }
+
+    .whatsapp-icon {
+        width: 20px;
+        height: 20px;
+        border: 2px solid currentColor;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+        line-height: 1;
+    }
+
+</style>
+</head>
+<body>
+<div class="container" id="app">
+    <div class="topbar">
+        <div>
+            <div class="brand">Presence Timer</div>
+            <div class="subtitle">Face + body detection • on-device processing</div>
+        </div>
+        <div id="miniState" style="font-size:.72rem;color:#777;">READY</div>
+    </div>
+
+    <section class="timer-display" id="timerBox">
+        <button
+            id="timerFullscreenBtn"
+            class="timer-fullscreen-btn"
+            type="button"
+            aria-label="Expand timer"
+            title="Expand timer">
+            ⛶
+        </button>
+
+        <div class="time" id="timeDisplay">00:00:00</div>
+        <div class="day-left" aria-live="polite">
+            <span class="current-clock" id="currentClock" aria-label="Current time">--:--:-- --</span>
+            <span class="day-left-value" id="dayLeftDisplay">23:59:59</span>
+        </div>
+    </section>
+
+    <!-- Status is intentionally outside the timer box -->
+    <div class="status-outside">
+        <div class="status-pill idle" id="statusPill">
+            ⚪ Ready — tap Allow Camera &amp; Start
+        </div>
+    </div>
+
+    <div class="video-wrapper" id="videoWrapper">
+        <video id="webcam" autoplay playsinline muted></video>
+        <canvas id="output_canvas"></canvas>
+        <div class="confidence-indicator" id="confidenceEl">Camera not started</div>
+
+    </div>
+
+    <!-- Camera/model errors are outside the camera window -->
+    <div id="errorEl" style="width:100%;background:rgba(50,0,5,.94);
+         border:1px solid rgba(255,85,112,.45);padding:10px;
+         border-radius:10px;font-size:.78rem;display:none;"></div>
+
+    <section class="card">
+        <div class="section-title">Controls</div>
+
+        <div class="toggle-row">
+            <div>
+                <div class="toggle-label">Hide camera window</div>
+                <div class="toggle-help">Detection continues while the preview is hidden. Timer runs only while a face or body is detected.</div>
+            </div>
+            <label class="switch">
+                <input id="hideCameraToggle" type="checkbox">
+                <span class="slider"></span>
+            </label>
+        </div>
+
+        <div class="toggle-row">
+            <div>
+                <div class="toggle-label">🚨 Human-detected alarm</div>
+                <div class="toggle-help">When ON, the offline MP3 starts automatically when a face or body is detected. It stops when the person disappears.</div>
+            </div>
+            <label class="switch">
+                <input id="humanDetectedAlarmToggle" type="checkbox" aria-label="Human detected alarm">
+                <span class="slider"></span>
+            </label>
+        </div>
+
+        <div class="toggle-row">
+            <div>
+                <div class="toggle-label">🚨 Person-missing alarm</div>
+                <div class="toggle-help">When ON, the offline MP3 starts when a previously detected person disappears. It stops automatically when a face or body is detected again.</div>
+                <div class="alarm-status" id="alarmStatus">Alarms OFF • ready</div>
+            </div>
+            <label class="switch">
+                <input id="alarmToggle" type="checkbox" aria-label="Person missing alarm">
+                <span class="slider"></span>
+            </label>
+        </div>
+
+    </section>
+
+    <div class="controls">
+        <button id="startStopBtn" class="btn-primary full-width">
+            Allow Camera &amp; Start
+        </button>
+        <button id="saveBtn" class="btn-secondary">Save Snapshot</button>
+        <button id="resetBtn" class="btn-secondary">Reset Timer</button>
+    </div>
+
+    <section class="card">
+        <div class="section-title-row">
+            <div class="section-title">Study overview</div>
+            <div style="display:flex;align-items:center;gap:7px;">
+                <button id="statsRefreshBtn" class="section-refresh-btn" type="button" aria-label="Refresh study overview" title="Refresh">↻</button>
+                <button id="resetAllStudyBtn" class="section-reset-btn" type="button" aria-label="Reset all study data" title="Reset all study data">Reset All</button>
+            </div>
+        </div>
+        <div class="stats-grid">
+            <div class="stat">
+                <div class="stat-label">Today</div>
+                <div class="stat-value" id="todayTotal">00:00:00</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">This month</div>
+                <div class="stat-value" id="monthTotal">00:00:00</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Days this month</div>
+                <div class="stat-value" id="studyDaysCount">0</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Current streak</div>
+                <div class="stat-value" id="studyStreak">0</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Best day</div>
+                <div class="stat-value" id="bestDay">00:00:00</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">All time</div>
+                <div class="stat-value" id="allTotal">00:00:00</div>
+            </div>
+        </div>
+        <div style="color:#666;font-size:.7rem;margin-top:10px;line-height:1.45;">Daily study time is saved automatically to this device. No nightly Save button is required.</div>
+    </section>
+
+    <section class="card">
+        <div class="section-title-row">
+            <div class="section-title">Saved timer records</div>
+            <div style="display:flex;align-items:center;gap:7px;">
+                <button id="historyRefreshBtn" class="section-refresh-btn" type="button" aria-label="Refresh saved timer records" title="Refresh">↻</button>
+                <button id="clearHistoryBtn" class="section-refresh-btn" type="button" aria-label="Clear saved timer records" title="Clear saved records">×</button>
+            </div>
+        </div>
+        <div class="history" id="history">
+            <div style="color:#666;font-size:.78rem;">No saved records yet.</div>
+        </div>
+    </section>
+
+    <section class="card">
+        <div class="section-title-row">
+            <div class="section-title">Study time history</div>
+            <button id="dailyRefreshBtn" class="section-refresh-btn" type="button" aria-label="Refresh study history" title="Refresh">↻</button>
+        </div>
+        <div class="study-summary">
+            <div class="study-summary-card">
+                <div class="study-summary-label">This month</div>
+                <div class="study-summary-value" id="studyMonthTotal">00:00:00</div>
+            </div>
+            <div class="study-summary-card">
+                <div class="study-summary-label">Days studied</div>
+                <div class="study-summary-value" id="studyDaysCountSummary">0</div>
+            </div>
+        </div>
+        <div class="daily-history" id="dailyHistory">
+            <div class="daily-empty">Study time will be saved automatically by date.</div>
+        </div>
+    </section>
+
+    <section class="card" id="dataBackupCard">
+        <div class="section-title">Backup &amp; Restore</div>
+        <div class="data-backup-help">Export your timer, study history, saved records, and app settings to a file. Importing a backup MERGES its timer, daily study history, and saved records into your current data instead of deleting them. App settings stay as they are now.</div>
+        <div class="data-backup-actions">
+            <button id="exportDataBtn" class="btn-secondary" type="button">Export Data</button>
+            <button id="importDataBtn" class="btn-secondary" type="button">Import &amp; Merge Data</button>
+        </div>
+        <input id="importDataInput" class="data-backup-input" type="file" accept="application/json,.json" aria-label="Choose Presence Timer backup file">
+    </section>
+
+    <button id="installAppBtn" class="install-app-btn" type="button"><img src="./icons/icon-192.png" alt="" onerror="this.style.display='none'"> <span>Install Study Tracker</span></button>
+
+    <div id="offlineStatus" style="text-align:center;color:#666;font-size:.7rem;padding:2px 8px;">Alarm audio is bundled locally • internet is not required for the alarm.</div>
+
+    <button id="developerContactBtn" class="developer-contact-btn" type="button">
+        <span class="whatsapp-icon">◉</span>
+        Contact Developer
+    </button>
+
+    <div class="permission-note">
+        Camera permission is requested only after you press
+        <b>Allow Camera &amp; Start</b>. Saved timer data stays on this device.
+    </div>
+</div>
+
+<audio id="alarmAudio" preload="auto" loop playsinline src="./alarm.mp3"></audio>
+<script type="module">
+    const statusPill = document.getElementById("statusPill");
+    const confidenceEl = document.getElementById("confidenceEl");
+    const errorEl = document.getElementById("errorEl");
+    const startStopBtn = document.getElementById("startStopBtn");
+    const resetBtn = document.getElementById("resetBtn");
+    const saveBtn = document.getElementById("saveBtn");
+    const timeDisplay = document.getElementById("timeDisplay");
+    const dayLeftDisplay = document.getElementById("dayLeftDisplay");
+    const currentClock = document.getElementById("currentClock");
+    const todayTotalEl = document.getElementById("todayTotal");
+    const monthTotalEl = document.getElementById("monthTotal");
+    const allTotalEl = document.getElementById("allTotal");
+    const historyEl = document.getElementById("history");
+    const video = document.getElementById("webcam");
+    const canvas = document.getElementById("output_canvas");
+    const ctx = canvas.getContext("2d");
+    const app = document.getElementById("app");
+    const videoWrapper = document.getElementById("videoWrapper");
+    const hideCameraToggle = document.getElementById("hideCameraToggle");
+    const alarmToggle = document.getElementById("alarmToggle");
+    const humanDetectedAlarmToggle = document.getElementById("humanDetectedAlarmToggle");
+    const alarmAudio = document.getElementById("alarmAudio");
+    const alarmStatus = document.getElementById("alarmStatus");
+    const miniState = document.getElementById("miniState");
+    const timerBox = document.getElementById("timerBox");
+    const timerFullscreenBtn = document.getElementById("timerFullscreenBtn");
+    const developerContactBtn = document.getElementById("developerContactBtn");
+    const installAppBtn = document.getElementById("installAppBtn");
+    const statsRefreshBtn = document.getElementById("statsRefreshBtn");
+    const historyRefreshBtn = document.getElementById("historyRefreshBtn");
+    const clearHistoryBtn = document.getElementById("clearHistoryBtn");
+    const dailyRefreshBtn = document.getElementById("dailyRefreshBtn");
+    const resetAllStudyBtn = document.getElementById("resetAllStudyBtn");
+    const exportDataBtn = document.getElementById("exportDataBtn");
+    const importDataBtn = document.getElementById("importDataBtn");
+    const importDataInput = document.getElementById("importDataInput");
+    const dailyHistoryEl = document.getElementById("dailyHistory");
+    const studyStreakEl = document.getElementById("studyStreak");
+    const bestDayEl = document.getElementById("bestDay");
+    const studyDaysCountSummaryEl = document.getElementById("studyDaysCountSummary");
+    const studyMonthTotalEl = document.getElementById("studyMonthTotal");
+    const studyDaysCountEl = document.getElementById("studyDaysCount");
+
+    const MP_VERSION = "0.10.35";
+    const WASM_URL =
+        `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VERSION}/wasm`;
+    const WASM_URL_FALLBACK =
+        `https://unpkg.com/@mediapipe/tasks-vision@${MP_VERSION}/wasm`;
+    const FACE_MODEL_URL =
+        "https://storage.googleapis.com/mediapipe-models/face_detector/" +
+        "blaze_face_short_range/float16/1/blaze_face_short_range.tflite";
+    const PERSON_MODEL_URL =
+        "https://storage.googleapis.com/mediapipe-models/object_detector/" +
+        "efficientdet_lite0/int8/1/efficientdet_lite0.tflite";
+
+    const STORAGE_KEY = "presenceTimerRecordsV1";
+    const SETTINGS_KEY = "presenceTimerSettingsV1";
+    const TIMER_STATE_KEY = "presenceTimerStateV1";
+    const DAILY_STUDY_KEY = "presenceTimerDailyStudyV1";
+    const ALARM_AUDIO_URL = "./alarm.mp3";
+    // Embedded copy of alarm.mp3: the alarm does not depend on a network
+    // request, service-worker state, or an online CDN after installation.
+    const ALARM_AUDIO_DATA_URL = "data:audio/mpeg;base64,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";
+    const ALARM_MAX_VOLUME = 1.0;
+
+    let FaceDetector, ObjectDetector, FilesetResolver;
+    let faceDetector = null;
+    let personDetector = null;
+    let modelsReady = false;
+    let modelsLoading = false;
+
+    let stream = null;
+    let isDetecting = false;
+    let animationId = null;
+    let detectionBusy = false;
+    let lastDetectionTime = 0;
+
+    const DETECTION_INTERVAL_MS = 150;
+    const START_DEBOUNCE_MS = 700;
+    const STOP_DEBOUNCE_MS = 1500;
+
+    // --- Detection accuracy tuning ------------------------------------
+    // A single confidence score from the face model isn't enough on its
+    // own to avoid false positives (e.g. a chair back or a patterned
+    // texture occasionally scoring as a "face"). These constants tier how
+    // much a face detection is trusted based on its score, its keypoint
+    // geometry (see isFaceGeometryPlausible), and whether the independent
+    // body/person model agrees a human is there in the same frame.
+    const FACE_MIN_CONFIDENCE = 0.62;      // detector-level floor (was 0.5)
+    const FACE_TRUSTED_CONFIDENCE = 0.80;  // trusted alone if geometry also passes
+    const BODY_MIN_CONFIDENCE = 0.5;       // detector-level floor (was 0.45)
+    // A face that is neither high-confidence nor corroborated by a body
+    // detection must show up at least this many times in the last
+    // RECENT_FRAMES_WINDOW processed frames before it counts as "seen".
+    const RECENT_FRAMES_WINDOW = 5;
+    const RECENT_FRAMES_REQUIRED = 2;
+
+    let accumulatedTime = 0;
+    let sessionStartTime = 0;
+    let isPresent = false;
+    let presenceFirstSeenTime = 0;
+    let presenceLastSeenTime = 0;
+    // Rolling history of recent frames that saw a face-shaped detection that
+    // wasn't yet confidently a face on its own (see isFaceGeometryPlausible
+    // and detectFrame). Requiring this evidence to repeat before trusting it
+    // is what keeps a single flickered false positive from starting the timer.
+    let recentWeakFaceFrames = [];
+    // True after a person has been confirmed present during this camera session.
+    // The missing-person alarm only arms after a person has actually been seen.
+    let personWasSeenThisSession = false;
+    // Duration already included in the most recent saved record.
+    // This prevents repeated "Save Timer" clicks from double-counting time.
+    let savedThroughTime = 0;
+    // Timestamp through which the active detection session has already been
+    // credited into the automatic daily study ledger.
+    let dailyCreditCursor = 0;
+    let deferredInstallPrompt = null;
+
+    // Saved records are local to this browser/device.
+    let records = loadRecords();
+
+    function loadRecords() {
+        try {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            const parsed = raw ? JSON.parse(raw) : [];
+            return Array.isArray(parsed) ? parsed : [];
+        } catch {
+            return [];
+        }
+    }
+
+    function persistRecords() {
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+        } catch (error) {
+            showError("Could not save timer data locally: " + error.message);
+        }
+    }
+
+    function loadSettings() {
+        try {
+            return JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}");
+        } catch {
+            return {};
+        }
+    }
+
+    let alarmPrimed = false;
+    let alarmPlaying = false;
+    let alarmReason = "";
+    let alarmObjectUrl = null;
+    let alarmAudioLoadPromise = null;
+
+    function updateAlarmStatus(text, active = false) {
+        alarmStatus.textContent = text;
+        alarmStatus.classList.toggle("alarm-active", active);
+    }
+
+    async function loadAlarmAudioOffline() {
+        // Load the bundled MP3 locally. The embedded data URL keeps playback
+        // independent of the internet and avoids media Range-request issues.
+        if (alarmObjectUrl) return true;
+        if (alarmAudioLoadPromise) return alarmAudioLoadPromise;
+
+        alarmAudioLoadPromise = (async () => {
+            try {
+                const response = await fetch(ALARM_AUDIO_DATA_URL);
+                if (!response.ok) throw new Error("Embedded alarm audio could not be read");
+                const blob = await response.blob();
+                if (!blob.size) throw new Error("alarm.mp3 is empty");
+
+                alarmObjectUrl = URL.createObjectURL(blob);
+                alarmAudio.src = alarmObjectUrl;
+                alarmAudio.preload = "auto";
+                alarmAudio.loop = true;
+                alarmAudio.volume = ALARM_MAX_VOLUME;
+                alarmAudio.load();
+
+                if (alarmAudio.readyState < HTMLMediaElement.HAVE_FUTURE_DATA) {
+                    await new Promise((resolve, reject) => {
+                        const onReady = () => { cleanup(); resolve(); };
+                        const onError = () => { cleanup(); reject(new Error("Browser could not decode alarm.mp3")); };
+                        const cleanup = () => {
+                            alarmAudio.removeEventListener("canplaythrough", onReady);
+                            alarmAudio.removeEventListener("error", onError);
+                        };
+                        alarmAudio.addEventListener("canplaythrough", onReady, { once: true });
+                        alarmAudio.addEventListener("error", onError, { once: true });
+                    });
+                }
+                return true;
+            } catch (error) {
+                console.warn("Offline alarm load failed:", error);
+                alarmAudioLoadPromise = null;
+                if (alarmObjectUrl) {
+                    URL.revokeObjectURL(alarmObjectUrl);
+                    alarmObjectUrl = null;
+                }
+                alarmAudio.src = ALARM_AUDIO_URL;
+                alarmAudio.load();
+                return false;
+            }
+        })();
+
+        return alarmAudioLoadPromise;
+    }
+
+    async function primeAlarmAudio() {
+        if (alarmPrimed) return true;
+        try {
+            const loaded = await loadAlarmAudioOffline();
+            if (!loaded) throw new Error("Local alarm audio could not be loaded");
+            alarmAudio.loop = true;
+            alarmAudio.volume = ALARM_MAX_VOLUME;
+            alarmAudio.currentTime = 0;
+            await alarmAudio.play();
+            alarmAudio.pause();
+            alarmAudio.currentTime = 0;
+            alarmPrimed = true;
+            updateAlarmStatus("Alarm audio ready • offline");
+            return true;
+        } catch (error) {
+            console.warn("Alarm audio could not be primed:", error);
+            updateAlarmStatus("Alarm enabled • tap Start or toggle again to allow audio");
+            return false;
+        }
+    }
+
+    async function startAlarmLoop(reason) {
+        if (!isDetecting || alarmPlaying) return;
+        try {
+            if (!alarmPrimed) {
+                const loaded = await loadAlarmAudioOffline();
+                if (!loaded) throw new Error("Local alarm audio unavailable");
+            }
+            alarmAudio.loop = true;
+            alarmAudio.volume = ALARM_MAX_VOLUME;
+            if (alarmAudio.ended || alarmAudio.currentTime >= Math.max(0, (alarmAudio.duration || 0) - 0.05)) {
+                alarmAudio.currentTime = 0;
+            }
+            alarmReason = reason;
+            await alarmAudio.play();
+            alarmPlaying = true;
+            updateAlarmStatus(
+                reason === "detected" ? "🚨 ALARM PLAYING • Human detected" : "🚨 ALARM PLAYING • Person missing",
+                true
+            );
+        } catch (error) {
+            alarmPlaying = false;
+            alarmReason = "";
+            console.warn("Alarm playback blocked:", error);
+            updateAlarmStatus("Alarm enabled • playback blocked — toggle OFF/ON to unlock", false);
+        }
+    }
+
+    function stopAlarmLoop(statusText = null) {
+        alarmPlaying = false;
+        alarmReason = "";
+        try {
+            alarmAudio.pause();
+            alarmAudio.currentTime = 0;
+        } catch {}
+        if (statusText) {
+            updateAlarmStatus(statusText, false);
+        } else if (alarmToggle.checked || humanDetectedAlarmToggle.checked) {
+            updateAlarmStatus("Alarms ON • waiting for detection", false);
+        } else {
+            updateAlarmStatus("Alarms OFF • ready", false);
+        }
+    }
+
+    // The single settings writer for this app. It always reads whatever is
+    // already saved first and merges in the current toggle states, so
+    // saving one setting (e.g. hideCamera) can never wipe out another
+    // (e.g. the alarm toggles) that isn't part of this particular change.
+    function persistAlarmSetting() {
+        try {
+            const current = loadSettings();
+            localStorage.setItem(SETTINGS_KEY, JSON.stringify({
+                ...current,
+                hideCamera: hideCameraToggle.checked,
+                alarmEnabled: alarmToggle.checked,
+                humanDetectedAlarmEnabled: humanDetectedAlarmToggle.checked
+            }));
+        } catch {}
+    }
+
+    function saveTimerState() {
+        try {
+            // Persist the true timer value even if a session is currently running.
+            // On reload we restore this total as a paused timer because camera
+            // detection cannot safely continue while the page is gone.
+            const runningElapsed =
+                (isPresent && sessionStartTime) ? Math.max(0, Date.now() - sessionStartTime) : 0;
+            const persistedTotal = Math.max(
+                0,
+                (Number(accumulatedTime) || 0) + runningElapsed
+            );
+
+            localStorage.setItem(TIMER_STATE_KEY, JSON.stringify({
+                accumulatedTime: persistedTotal,
+                savedThroughTime: Math.max(0, Number(savedThroughTime) || 0),
+                isPresent: !!isPresent,
+                sessionStartTime: Number(sessionStartTime) || 0,
+                savedAt: Date.now()
+            }));
+        } catch (error) {
+            console.warn("Could not persist timer state:", error);
+        }
+    }
+
+    function loadTimerState() {
+        try {
+            const raw = localStorage.getItem(TIMER_STATE_KEY);
+            if (!raw) return;
+
+            const state = JSON.parse(raw);
+            if (!state || typeof state !== "object") return;
+
+            accumulatedTime = Math.max(0, Number(state.accumulatedTime) || 0);
+            savedThroughTime = Math.min(
+                accumulatedTime,
+                Math.max(0, Number(state.savedThroughTime) || 0)
+            );
+
+            // Never resume camera detection automatically after reload.
+            // The persisted total already includes the elapsed portion of a
+            // session that was active when the page disappeared.
+            isPresent = false;
+            sessionStartTime = 0;
+            presenceFirstSeenTime = 0;
+            presenceLastSeenTime = 0;
+        } catch (error) {
+            console.warn("Could not restore timer state:", error);
+        }
+    }
+
+    function clearTimerState() {
+        try {
+            localStorage.removeItem(TIMER_STATE_KEY);
+        } catch {}
+    }
+
+    function updateStatus(text, state) {
+        statusPill.textContent = text;
+        statusPill.className = `status-pill ${state}`;
+        miniState.textContent = state.toUpperCase();
+    }
+
+    function showError(message) {
+        errorEl.textContent = message;
+        errorEl.style.display = "block";
+    }
+
+    function hideError() {
+        errorEl.textContent = "";
+        errorEl.style.display = "none";
+    }
+
+    function formatTime(ms) {
+        ms = Math.max(0, Math.floor(ms));
+        const totalSeconds = Math.floor(ms / 1000);
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+
+        return `${String(hours).padStart(2,"0")}:` +
+               `${String(minutes).padStart(2,"0")}:` +
+               `${String(seconds).padStart(2,"0")}`;
+    }
+
+    function currentDisplayTime() {
+        return accumulatedTime +
+            (isPresent && isDetecting ? Date.now() - sessionStartTime : 0);
+    }
+
+    let lastPersistedDisplaySecond = -1;
+    let lastLiveStatsRenderSecond = -1;
+    const LIVE_STATS_REFRESH_SECONDS = 20;
+
+    function getMillisecondsUntilNextLocalMidnight(now = Date.now()) {
+        const nextMidnight = new Date(now);
+        nextMidnight.setHours(24, 0, 0, 0);
+        return Math.max(0, nextMidnight.getTime() - now);
+    }
+
+    function updateDayLeftDisplay(now = Date.now()) {
+        const totalSeconds = Math.max(0, Math.ceil(getMillisecondsUntilNextLocalMidnight(now) / 1000));
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+        dayLeftDisplay.textContent = `${String(hours).padStart(2, "0")}:` +
+            `${String(minutes).padStart(2, "0")}:` +
+            `${String(seconds).padStart(2, "0")}`;
+    }
+
+    function updateCurrentClock(now = new Date()) {
+        currentClock.textContent = now.toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            hour12: true
+        });
+    }
+
+    function updateTimerDisplay() {
+        updateDayLeftDisplay();
+        const current = currentDisplayTime();
+        timeDisplay.textContent = formatTime(current);
+
+        const currentSecond = Math.floor(current / 1000);
+        if (currentSecond !== lastPersistedDisplaySecond) {
+            lastPersistedDisplaySecond = currentSecond;
+
+            // Automatically write study time to the correct calendar day.
+            // The ledger is updated at most once per displayed second, while
+            // stop/close/background events also flush the exact remaining time.
+            if (isPresent && isDetecting) {
+                creditActiveStudy(Date.now());
+
+                // Keep Today/This month/streak/etc. visibly moving during a
+                // long session instead of only updating on the next
+                // start/stop/save — the ledger above is already live, this
+                // just keeps the on-screen numbers from looking frozen.
+                if (currentSecond - lastLiveStatsRenderSecond >= LIVE_STATS_REFRESH_SECONDS) {
+                    lastLiveStatsRenderSecond = currentSecond;
+                    renderStats();
+                }
+            }
+
+            saveTimerState();
+        }
+    }
+
+    function localDateKey(timestamp) {
+        const d = new Date(timestamp);
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, "0");
+        const day = String(d.getDate()).padStart(2, "0");
+        return `${y}-${m}-${day}`;
+    }
+
+    function localMonthKey(timestamp) {
+        const d = new Date(timestamp);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    }
+
+    function loadDailyStudy() {
+        try {
+            const raw = localStorage.getItem(DAILY_STUDY_KEY);
+            const parsed = raw ? JSON.parse(raw) : {};
+            return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+        } catch {
+            return {};
+        }
+    }
+
+    let dailyStudy = loadDailyStudy();
+
+    function persistDailyStudy() {
+        try {
+            localStorage.setItem(DAILY_STUDY_KEY, JSON.stringify(dailyStudy));
+        } catch (error) {
+            console.warn("Could not save daily study data:", error);
+        }
+    }
+
+    // Add an exact study interval to the correct local calendar day(s).
+    // If a session crosses midnight, the time is split automatically.
+    function addStudyInterval(startTimestamp, endTimestamp) {
+        let start = Number(startTimestamp) || 0;
+        const end = Number(endTimestamp) || 0;
+
+        if (!start || !end || end <= start) return;
+
+        while (start < end) {
+            const startDate = new Date(start);
+            const dateKey = localDateKey(start);
+            const nextMidnight = new Date(startDate);
+            nextMidnight.setHours(24, 0, 0, 0);
+
+            const segmentEnd = Math.min(end, nextMidnight.getTime());
+            const duration = Math.max(0, segmentEnd - start);
+
+            if (duration > 0) {
+                dailyStudy[dateKey] = Math.max(
+                    0,
+                    Number(dailyStudy[dateKey]) || 0
+                ) + duration;
+            }
+
+            start = segmentEnd;
+        }
+
+        persistDailyStudy();
+    }
+
+    // Credit only the part of the current active session that has not
+    // already been written to the daily ledger.
+    function creditActiveStudy(now = Date.now()) {
+        if (!isPresent || !sessionStartTime) return;
+
+        const cursor = dailyCreditCursor || sessionStartTime;
+        if (now > cursor) {
+            addStudyInterval(cursor, now);
+            dailyCreditCursor = now;
+        }
+    }
+
+    // Cleanly end an active presence session: credit whatever time hasn't
+    // been written to the daily ledger yet, fold it into accumulatedTime,
+    // and reset every piece of state a fresh detection needs to re-confirm
+    // presence from scratch (rather than instantly resuming). Used by the
+    // camera-loss timeout, the Stop button, and the tab-hidden handler so
+    // all three end a session the exact same way.
+    function endPresenceSession(now = Date.now()) {
+        if (!isPresent) return;
+        creditActiveStudy(now);
+        accumulatedTime += now - sessionStartTime;
+        isPresent = false;
+        sessionStartTime = 0;
+        dailyCreditCursor = 0;
+        presenceFirstSeenTime = 0;
+        presenceLastSeenTime = 0;
+        recentWeakFaceFrames.length = 0;
+    }
+
+    function getAutomaticStudyStats() {
+        const now = Date.now();
+        const today = localDateKey(now);
+        const month = localMonthKey(now);
+
+        let todayMs = Math.max(0, Number(dailyStudy[today]) || 0);
+        let monthMs = 0;
+        let allMs = 0;
+        let daysThisMonth = 0;
+        let bestDayMs = 0;
+
+        for (const [dateKey, valueRaw] of Object.entries(dailyStudy)) {
+            const value = Math.max(0, Number(valueRaw) || 0);
+            allMs += value;
+            if (dateKey.startsWith(month)) {
+                monthMs += value;
+                if (value > 0) daysThisMonth++;
+            }
+            if (value > bestDayMs) bestDayMs = value;
+        }
+
+        let streak = 0;
+        let cursor = new Date(now);
+        // A streak counts consecutive calendar days with at least one second.
+        // If today has no study yet, start checking from yesterday.
+        if (todayMs <= 0) cursor.setDate(cursor.getDate() - 1);
+        while (true) {
+            const key = localDateKey(cursor.getTime());
+            if ((Number(dailyStudy[key]) || 0) <= 0) break;
+            streak++;
+            cursor.setDate(cursor.getDate() - 1);
+        }
+
+        return { todayMs, monthMs, allMs, daysThisMonth, streak, bestDayMs };
+    }
+
+    function renderDailyStudy() {
+        const stats = getAutomaticStudyStats();
+        studyMonthTotalEl.textContent = formatTime(stats.monthMs);
+        studyDaysCountSummaryEl.textContent = String(stats.daysThisMonth);
+        studyStreakEl.textContent = `${stats.streak} day${stats.streak === 1 ? "" : "s"}`;
+        bestDayEl.textContent = formatTime(stats.bestDayMs);
+
+        const entries = Object.entries(dailyStudy)
+            .map(([dateKey, durationMs]) => ({
+                dateKey,
+                durationMs: Math.max(0, Number(durationMs) || 0)
+            }))
+            .filter(item => item.durationMs > 0)
+            .sort((a, b) => b.dateKey.localeCompare(a.dateKey))
+            .slice(0, 120);
+
+        if (!entries.length) {
+            dailyHistoryEl.innerHTML =
+                '<div class="daily-empty">Study time will be saved automatically by date.</div>';
+            return;
+        }
+
+        dailyHistoryEl.innerHTML = entries.map(item => {
+            const date = new Date(`${item.dateKey}T12:00:00`);
+            const pretty = date.toLocaleDateString(undefined, {
+                weekday: "short",
+                year: "numeric",
+                month: "short",
+                day: "numeric"
+            });
+            const monthKey = localMonthKey(date.getTime());
+
+            return `
+                <div class="daily-row">
+                    <div>
+                        <div class="daily-date">${pretty}</div>
+                        <div class="daily-date-sub">${monthKey}</div>
+                    </div>
+                    <div class="daily-duration">${formatTime(item.durationMs)}</div>
+                </div>
+            `;
+        }).join("");
+    }
+
+    function getStats() {
+        return getAutomaticStudyStats();
+    }
+
+    function renderStats() {
+        const stats = getStats();
+
+        todayTotalEl.textContent = formatTime(stats.todayMs);
+        monthTotalEl.textContent = formatTime(stats.monthMs);
+        allTotalEl.textContent = formatTime(stats.allMs);
+        studyDaysCountEl.textContent = String(stats.daysThisMonth);
+        renderDailyStudy();
+
+        if (!records.length) {
+            historyEl.innerHTML =
+                '<div style="color:#666;font-size:.78rem;">No saved records yet.</div>';
+            return;
+        }
+
+        historyEl.innerHTML = records
+            .slice()
+            .reverse()
+            .slice(0, 30)
+            .map(record => {
+                const date = new Date(record.timestamp);
+                const label = date.toLocaleString();
+                return `
+                    <div class="history-row">
+                        <div>
+                            <div>${record.label || "Saved timer"}</div>
+                            <div class="history-date">${label}</div>
+                        </div>
+                        <div class="history-time">${formatTime(record.durationMs)}</div>
+                    </div>
+                `;
+            })
+            .join("");
+    }
+
+    // Saves the current timer as a local record.
+    function saveCurrentTimer() {
+        const totalDuration = currentDisplayTime();
+        const duration = Math.max(0, totalDuration - savedThroughTime);
+
+        if (duration <= 0) {
+            updateStatus("⚪ No new time to save", "idle");
+            return;
+        }
+
+        const timestamp = Date.now();
+
+        records.push({
+            id: `${timestamp}-${Math.random().toString(36).slice(2)}`,
+            timestamp,
+            durationMs: duration,
+            dateKey: localDateKey(timestamp),
+            monthKey: localMonthKey(timestamp),
+            label: "Saved timer"
+        });
+
+        savedThroughTime = totalDuration;
+        persistRecords();
+        saveTimerState();
+        renderStats();
+
+        updateStatus("🟢 New timer time saved locally", "running");
+        setTimeout(() => {
+            if (isDetecting && isPresent) {
+                updateStatus("🟢 Human detected — Timer running", "running");
+            } else if (isDetecting) {
+                updateStatus("🟡 Looking for face or body...", "idle");
+            }
+        }, 1000);
+    }
+
+    function drawBox(box, label) {
+        if (!box) return;
+
+        const x = box.originX;
+        const y = box.originY;
+        const w = box.width;
+        const h = box.height;
+
+        ctx.strokeStyle = label.startsWith("FACE") ? "#35d07f" : "#4da3ff";
+        ctx.lineWidth = Math.max(3, canvas.width / 180);
+        ctx.strokeRect(x, y, w, h);
+
+        ctx.font = `${Math.max(14, canvas.width / 35)}px sans-serif`;
+        const textWidth = ctx.measureText(label).width;
+        const labelHeight = Math.max(22, canvas.width / 25);
+        const labelY = Math.max(labelHeight, y);
+
+        ctx.fillStyle = ctx.strokeStyle;
+        ctx.fillRect(x, labelY - labelHeight, textWidth + 12, labelHeight);
+
+        ctx.fillStyle = "#fff";
+        ctx.fillText(label, x + 6, labelY - 6);
+    }
+
+    async function waitForOfflineCacheReady() {
+        if (!('serviceWorker' in navigator)) return;
+        const offlineStatusEl = document.getElementById('offlineStatus');
+        try {
+            const registration = await navigator.serviceWorker.ready;
+            if (!registration.active) return;
+
+            navigator.serviceWorker.addEventListener('message', event => {
+                const data = event.data || {};
+                if (data.type === 'AI_READY_STATUS') {
+                    if (data.ready) {
+                        offlineStatusEl.textContent = '✓ Offline AI ready • internet is not required after first setup.';
+                    } else {
+                        // Not fully cached yet. Kick off (or resume) the real
+                        // caching pass — it checks the cache before touching
+                        // the network for every file, so this costs nothing
+                        // when offline and everything needed is already there.
+                        offlineStatusEl.textContent = 'Preparing offline AI files… keep internet on for first setup.';
+                        registration.active.postMessage({ type: 'PRECACHE_AI' });
+                    }
+                } else if (data.type === 'AI_CACHE_PROGRESS') {
+                    offlineStatusEl.textContent = `Caching AI files… ${data.done}/${data.total}`;
+                } else if (data.type === 'AI_CACHE_READY') {
+                    // Honest completion: only claim "ready" if every file the
+                    // AI actually needs is confirmed to be in the cache, not
+                    // just that a caching pass finished running.
+                    if (data.allReady) {
+                        offlineStatusEl.textContent = '✓ Offline AI ready • internet is not required after first setup.';
+                    } else {
+                        offlineStatusEl.textContent =
+                            'Some offline AI files couldn\'t be downloaded yet. ' +
+                            'Connect to the internet once and reopen the app to finish setup.';
+                    }
+                }
+            });
+
+            // Ask what's already cached first. This is a pure cache lookup
+            // with zero network calls either way, so on every later launch
+            // (once setup has fully finished) it resolves instantly instead
+            // of touching the network at all.
+            registration.active.postMessage({ type: 'CHECK_AI_READY' });
+        } catch (error) {
+            console.warn('Offline cache setup failed:', error);
+        }
+    }
+
+    // Retries a flaky async step a couple of times with a short pause
+    // between attempts. Only meant to smooth over a transient network
+    // hiccup during the one-time online setup — once everything is cached,
+    // this app never needs the network again, so it's worth a little
+    // extra persistence here rather than surfacing an error the person
+    // then has to manually retry themselves.
+    async function withRetries(fn, attempts = 2, delayMs = 900) {
+        let lastError;
+        for (let i = 0; i < attempts; i++) {
+            try {
+                return await fn();
+            } catch (error) {
+                lastError = error;
+                if (i < attempts - 1) {
+                    await new Promise(resolve => setTimeout(resolve, delayMs));
+                }
+            }
+        }
+        throw lastError;
+    }
+
+    async function loadMediaPipe() {
+        if (modelsReady) return true;
+        if (modelsLoading) return false;
+
+        modelsLoading = true;
+        updateStatus("🟡 Loading AI models...", "idle");
+
+        try {
+            const visionModule = await withRetries(async () => {
+                try {
+                    return await import(
+                        `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VERSION}/vision_bundle.mjs`
+                    );
+                } catch (firstError) {
+                    console.warn("Primary MediaPipe CDN failed.", firstError);
+                    return await import(
+                        `https://unpkg.com/@mediapipe/tasks-vision@${MP_VERSION}/vision_bundle.mjs`
+                    );
+                }
+            });
+
+            FaceDetector = visionModule.FaceDetector;
+            ObjectDetector = visionModule.ObjectDetector;
+            FilesetResolver = visionModule.FilesetResolver;
+
+            const vision = await withRetries(async () => {
+                try {
+                    return await FilesetResolver.forVisionTasks(WASM_URL);
+                } catch (firstError) {
+                    console.warn("Primary WASM CDN failed.", firstError);
+                    return await FilesetResolver.forVisionTasks(WASM_URL_FALLBACK);
+                }
+            });
+
+            faceDetector = await withRetries(() => FaceDetector.createFromOptions(vision, {
+                baseOptions: {
+                    modelAssetPath: FACE_MODEL_URL,
+                    delegate: "CPU"
+                },
+                runningMode: "VIDEO",
+                minDetectionConfidence: FACE_MIN_CONFIDENCE
+            }));
+
+            personDetector = await withRetries(() => ObjectDetector.createFromOptions(vision, {
+                baseOptions: {
+                    modelAssetPath: PERSON_MODEL_URL,
+                    delegate: "CPU"
+                },
+                runningMode: "VIDEO",
+                maxResults: 3,
+                scoreThreshold: BODY_MIN_CONFIDENCE,
+                categoryAllowlist: ["person"]
+            }));
+
+            modelsReady = true;
+            modelsLoading = false;
+            hideError();
+
+            updateStatus("🟡 Looking for face or body...", "idle");
+            confidenceEl.textContent = "Face + body detector ready";
+
+            return true;
+
+        } catch (error) {
+            modelsLoading = false;
+            console.error(error);
+            showError(
+                "AI model error: " + (error?.message || String(error))
+            );
+            updateStatus("🔴 AI model failed", "paused");
+            return false;
+        }
+    }
+
+    // Face keypoints from the BlazeFace model come in a fixed order:
+    // [right eye, left eye, nose tip, mouth center, right ear, left ear],
+    // as normalized (0-1) image coordinates. A confidently-wrong detection
+    // (e.g. a chair back, a patterned cushion) still gets *some* box and
+    // keypoints from the model, but those keypoints rarely fall into a
+    // plausible face layout the way a real face's do. Checking that layout
+    // — rather than trusting the confidence score alone — is the main
+    // defense against non-face false positives.
+    function isFaceGeometryPlausible(detection, videoWidth, videoHeight) {
+        const box = detection.boundingBox;
+        if (!box || !box.width || !box.height || !videoWidth || !videoHeight) return false;
+
+        // A real face's box is roughly as tall as it is wide. Extremely
+        // wide/flat or narrow/tall boxes are usually not faces.
+        const aspect = box.width / box.height;
+        if (aspect < 0.55 || aspect > 1.8) return false;
+
+        // Reject boxes that are implausibly tiny (noise) or implausibly
+        // huge (usually a lighting/exposure artifact filling the frame).
+        const boxAreaFraction = (box.width * box.height) / (videoWidth * videoHeight);
+        if (boxAreaFraction < 0.0008 || boxAreaFraction > 0.92) return false;
+
+        const keypoints = detection.keypoints || [];
+        // If keypoints aren't available for some reason, don't fail the
+        // detection over it — fall back to the box-shape check above plus
+        // the confidence tiering in detectFrame.
+        if (keypoints.length < 4) return true;
+
+        const points = keypoints.map(k => ({
+            x: k.x * videoWidth,
+            y: k.y * videoHeight
+        }));
+        const [rightEye, leftEye, nose, mouth] = points;
+
+        const eyeDistance = Math.hypot(leftEye.x - rightEye.x, leftEye.y - rightEye.y);
+        if (eyeDistance < box.width * 0.12 || eyeDistance > box.width * 0.95) return false;
+
+        // Eyes should be roughly level (generous tolerance for head tilt).
+        const eyeLevelDiff = Math.abs(leftEye.y - rightEye.y);
+        if (eyeLevelDiff > box.height * 0.45) return false;
+
+        // Nose should sit below the eyes, mouth below the nose.
+        const eyeMidY = (leftEye.y + rightEye.y) / 2;
+        if (nose.y < eyeMidY - box.height * 0.12) return false;
+        if (mouth.y < nose.y - box.height * 0.08) return false;
+
+        // All keypoints should land inside (or very near) the box the
+        // model reported them in — keypoints scattered well outside their
+        // own detection box are a sign of a degenerate/garbage detection.
+        const marginX = box.width * 0.35;
+        const marginY = box.height * 0.35;
+        for (const point of points) {
+            if (point.x < box.originX - marginX || point.x > box.originX + box.width + marginX) return false;
+            if (point.y < box.originY - marginY || point.y > box.originY + box.height + marginY) return false;
+        }
+
+        return true;
+    }
+
+    // Light sanity check on the body/person detector's box. The object
+    // detector is a completely different, independent model restricted to
+    // the "person" category, so it's far less likely to share the exact
+    // same false positive as the face detector — this just filters out
+    // degenerate (near-zero-size) boxes.
+    function isBodyBoxPlausible(detection, videoWidth, videoHeight) {
+        const box = detection.boundingBox;
+        if (!box || !box.width || !box.height || !videoWidth || !videoHeight) return false;
+        const boxAreaFraction = (box.width * box.height) / (videoWidth * videoHeight);
+        return boxAreaFraction >= 0.01 && boxAreaFraction <= 0.98;
+    }
+
+    async function detectFrame() {
+        if (!isDetecting || !modelsReady || detectionBusy) return;
+
+        const now = Date.now();
+
+        if (
+            now - lastDetectionTime < DETECTION_INTERVAL_MS ||
+            video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA ||
+            !video.videoWidth ||
+            !video.videoHeight
+        ) return;
+
+        lastDetectionTime = now;
+        detectionBusy = true;
+
+        try {
+            const timestamp = performance.now();
+
+            const faceResult =
+                faceDetector.detectForVideo(video, timestamp);
+            const personResult =
+                personDetector.detectForVideo(video, timestamp);
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const faces = faceResult?.detections || [];
+            const persons = personResult?.detections || [];
+            const videoW = video.videoWidth;
+            const videoH = video.videoHeight;
+
+            // Body/person detections: the object detector is already
+            // restricted to the "person" category, so this is just a
+            // sanity check on the box itself.
+            const validPersons = persons.filter(d => isBodyBoxPlausible(d, videoW, videoH));
+            const bodyDetectedThisFrame = validPersons.length > 0;
+
+            // Face detections: reject anything whose box shape or
+            // keypoint layout isn't plausibly a face before it's allowed
+            // to influence anything. This is what stops a chair, a
+            // patterned cushion, or a poster from registering as "a face"
+            // — a confidence score alone isn't a reliable enough signal.
+            const geometryValidFaces = faces.filter(d => isFaceGeometryPlausible(d, videoW, videoH));
+
+            let bestConfidence = 0;
+            let strongFace = false;
+
+            for (const detection of geometryValidFaces) {
+                const score = detection.categories?.[0]?.score || 0;
+                bestConfidence = Math.max(bestConfidence, score);
+                if (score >= FACE_TRUSTED_CONFIDENCE) strongFace = true;
+                drawBox(
+                    detection.boundingBox,
+                    `FACE ${Math.round(score * 100)}%`
+                );
+            }
+
+            for (const detection of validPersons) {
+                const score = detection.categories?.[0]?.score || 0;
+                bestConfidence = Math.max(bestConfidence, score);
+                drawBox(
+                    detection.boundingBox,
+                    `BODY ${Math.round(score * 100)}%`
+                );
+            }
+
+            // A geometry-valid face is trusted immediately if it's either
+            // high-confidence on its own, or the independent body detector
+            // also sees a person in the same frame — two different models
+            // agreeing is strong evidence. Otherwise it's "weak" evidence
+            // that only counts once it has repeated across recent frames.
+            // That's what stops a single flickered false positive from
+            // starting the timer, without slowing down recognizing a real,
+            // clearly-visible face.
+            const corroboratedFace = geometryValidFaces.length > 0 && bodyDetectedThisFrame;
+            const weakFace = geometryValidFaces.length > 0 && !strongFace && !corroboratedFace;
+
+            recentWeakFaceFrames.push(weakFace ? 1 : 0);
+            if (recentWeakFaceFrames.length > RECENT_FRAMES_WINDOW) recentWeakFaceFrames.shift();
+            const weakFaceConfirmed = weakFace &&
+                recentWeakFaceFrames.reduce((sum, value) => sum + value, 0) >= RECENT_FRAMES_REQUIRED;
+
+            const faceDetected = strongFace || corroboratedFace || weakFaceConfirmed;
+            const bodyDetected = bodyDetectedThisFrame;
+            const humanDetected = faceDetected || bodyDetected;
+
+            if (humanDetected) {
+                const types = [
+                    faceDetected ? "Face" : "",
+                    bodyDetected ? "Body" : ""
+                ].filter(Boolean).join(" + ");
+
+                confidenceEl.textContent =
+                    `Detected: ${types} • Confidence: ` +
+                    `${Math.round(bestConfidence * 100)}%`;
+
+                if (!presenceFirstSeenTime) {
+                    presenceFirstSeenTime = now;
+                }
+
+                presenceLastSeenTime = now;
+
+                if (
+                    !isPresent &&
+                    now - presenceFirstSeenTime >= START_DEBOUNCE_MS
+                ) {
+                    isPresent = true;
+                    sessionStartTime = now;
+                    dailyCreditCursor = now;
+                    updateStatus(
+                        "🟢 Human detected — Timer running",
+                        "running"
+                    );
+                }
+
+            } else {
+                confidenceEl.textContent =
+                    "Detected: None • Confidence: 0%";
+
+                // Do not cancel the start debounce because of one missed frame.
+                // Only abandon a pending detection after the same grace period
+                // used for stopping an active session.
+                if (
+                    !isPresent &&
+                    presenceFirstSeenTime &&
+                    now - presenceLastSeenTime >= STOP_DEBOUNCE_MS
+                ) {
+                    presenceFirstSeenTime = 0;
+                }
+
+                if (
+                    isPresent &&
+                    now - presenceLastSeenTime >= STOP_DEBOUNCE_MS
+                ) {
+                    endPresenceSession(now);
+                    saveTimerState();
+                    updateStatus(
+                        "🔴 No face or body — Timer paused",
+                        "paused"
+                    );
+                }
+            }
+
+            // TWO INDEPENDENT ALARM MODES:
+            // 1) Human-detected alarm: sounds while a confirmed human is present.
+            // 2) Person-missing alarm: sounds after that human disappears.
+            // If both are enabled, the alarm automatically switches reason at
+            // the presence/missing boundary. Both modes use the same offline MP3.
+            if (humanDetected) {
+                personWasSeenThisSession = true;
+                if (alarmToggle.checked) {
+                    // A returning human always cancels the missing-person alarm.
+                    if (alarmPlaying && alarmReason === "missing") stopAlarmLoop();
+                    if (humanDetectedAlarmToggle.checked && !alarmPlaying) {
+                        startAlarmLoop("detected");
+                    } else if (!humanDetectedAlarmToggle.checked && alarmPlaying && alarmReason === "detected") {
+                        stopAlarmLoop();
+                    }
+                } else if (humanDetectedAlarmToggle.checked) {
+                    if (alarmPlaying && alarmReason === "missing") stopAlarmLoop();
+                    if (!alarmPlaying) startAlarmLoop("detected");
+                } else if (alarmPlaying) {
+                    stopAlarmLoop();
+                }
+            } else if (
+                alarmToggle.checked &&
+                personWasSeenThisSession &&
+                !isPresent &&
+                !presenceFirstSeenTime
+            ) {
+                // The normal STOP_DEBOUNCE_MS grace period has already elapsed.
+                if (alarmPlaying && alarmReason === "detected") stopAlarmLoop();
+                if (!alarmPlaying) startAlarmLoop("missing");
+            } else if (!alarmToggle.checked && !humanDetectedAlarmToggle.checked && alarmPlaying) {
+                stopAlarmLoop();
+            }
+
+        } catch (error) {
+            console.error("Detection error:", error);
+            showError("Detection error: " + (error?.message || String(error)));
+        } finally {
+            detectionBusy = false;
+        }
+    }
+
+    function detectionLoop() {
+        if (!isDetecting) return;
+
+        detectFrame();
+        updateTimerDisplay();
+
+        animationId = requestAnimationFrame(detectionLoop);
+    }
+
+    async function startDetection() {
+        hideError();
+
+        if (!window.isSecureContext) {
+            showError("Camera requires HTTPS.");
+            updateStatus("🔴 HTTPS required", "paused");
+            return;
+        }
+
+        if (!navigator.mediaDevices?.getUserMedia) {
+            showError("Camera API is unavailable in this browser.");
+            return;
+        }
+
+        startStopBtn.disabled = true;
+        // If the alarm was left ON from a previous visit, this Start tap is a
+        // fresh user gesture that can unlock local audio before detection begins.
+        if (alarmToggle.checked || humanDetectedAlarmToggle.checked) {
+            await primeAlarmAudio();
+        }
+        updateStatus("🟡 Requesting camera permission...", "idle");
+
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                    facingMode: { ideal: "user" },
+                    width: { ideal: 640 },
+                    height: { ideal: 480 }
+                },
+                audio: false
+            });
+
+            video.srcObject = stream;
+            await video.play();
+
+            if (!video.videoWidth) {
+                await new Promise(resolve => {
+                    video.addEventListener("loadedmetadata", resolve, {
+                        once: true
+                    });
+                });
+            }
+
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+
+            isDetecting = true;
+            isPresent = false;
+            presenceFirstSeenTime = 0;
+            presenceLastSeenTime = 0;
+            recentWeakFaceFrames.length = 0;
+            personWasSeenThisSession = false;
+            lastDetectionTime = 0;
+            detectionBusy = false;
+
+            startStopBtn.textContent = "Stop Detection";
+            startStopBtn.classList.replace("btn-primary", "btn-danger");
+
+            updateStatus("🟡 Loading detector...", "idle");
+            confidenceEl.textContent = "Camera active";
+
+            const ready = await loadMediaPipe();
+
+            if (ready) {
+                updateStatus("🟡 Looking for face or body...", "idle");
+                detectionLoop();
+            } else {
+                stopDetection();
+            }
+
+        } catch (error) {
+            console.error(error);
+
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+
+            video.srcObject = null;
+
+            let message;
+
+            if (error?.name === "NotAllowedError") {
+                message =
+                    "Camera permission denied. Open Chrome site settings → Camera → Allow.";
+            } else if (error?.name === "NotFoundError") {
+                message = "No camera was found.";
+            } else if (error?.name === "NotReadableError") {
+                message = "Camera is busy. Close other camera apps.";
+            } else {
+                message = "Camera error: " + (error?.message || String(error));
+            }
+
+            showError(message);
+            updateStatus("🔴 Camera unavailable", "paused");
+            confidenceEl.textContent = "Camera not started";
+        } finally {
+            startStopBtn.disabled = false;
+        }
+    }
+
+    function stopDetection() {
+        isDetecting = false;
+
+        if (animationId) {
+            cancelAnimationFrame(animationId);
+            animationId = null;
+        }
+
+        if (isPresent) {
+            endPresenceSession(Date.now());
+            saveTimerState();
+        }
+
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+            stream = null;
+        }
+
+        video.srcObject = null;
+        recentWeakFaceFrames.length = 0;
+        personWasSeenThisSession = false;
+        stopAlarmLoop();
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        confidenceEl.textContent = "Camera stopped";
+        updateStatus("⚪ Detection stopped", "idle");
+
+        startStopBtn.textContent = "Allow Camera & Start";
+        startStopBtn.classList.replace("btn-danger", "btn-primary");
+
+        updateTimerDisplay();
+        renderStats();
+    }
+
+    function resetAllStudyData() {
+        const confirmed = window.confirm(
+            "Reset ALL study data?\n\nThis will permanently delete:\n• Today and all daily study history\n• This month's and all-time totals\n• Streak and best-day data\n• Saved timer snapshots\n• The current timer value\n\nCamera/app settings will NOT be changed."
+        );
+
+        if (!confirmed) return;
+
+        // Stop detection first so no old session can write time after the reset.
+        if (isDetecting) stopDetection();
+
+        records = [];
+        dailyStudy = {};
+        accumulatedTime = 0;
+        savedThroughTime = 0;
+        sessionStartTime = 0;
+        isPresent = false;
+        presenceFirstSeenTime = 0;
+        presenceLastSeenTime = 0;
+        recentWeakFaceFrames.length = 0;
+        personWasSeenThisSession = false;
+        dailyCreditCursor = 0;
+
+        try {
+            localStorage.removeItem(STORAGE_KEY);
+            localStorage.removeItem(DAILY_STUDY_KEY);
+            localStorage.removeItem(TIMER_STATE_KEY);
+        } catch (error) {
+            console.warn("Could not clear all study data:", error);
+        }
+
+        lastPersistedDisplaySecond = -1;
+        timeDisplay.textContent = "00:00:00";
+        renderStats();
+        renderDailyStudy();
+        updateStatus("⚪ All study data reset", "idle");
+    }
+
+    function resetTimer() {
+        // Reset only the visible/session timer. Never erase the automatic daily ledger.
+        const now = Date.now();
+        if (isPresent && sessionStartTime) {
+            creditActiveStudy(now);
+            // Keep detection active if the person is still visible, but start a fresh
+            // timer session from zero at this exact moment.
+            accumulatedTime = 0;
+            savedThroughTime = 0;
+            sessionStartTime = now;
+            dailyCreditCursor = now;
+        } else {
+            accumulatedTime = 0;
+            savedThroughTime = 0;
+            sessionStartTime = 0;
+            dailyCreditCursor = 0;
+        }
+
+        presenceFirstSeenTime = 0;
+        presenceLastSeenTime = isPresent ? now : 0;
+        clearTimerState();
+        saveTimerState();
+        timeDisplay.textContent = "00:00:00";
+        renderStats();
+        updateStatus(isPresent ? "🟢 Human detected — New timer session" : "⚪ Timer reset", isPresent ? "running" : "idle");
+    }
+
+    async function setTimerBoxFullscreen(enabled) {
+        if (enabled) {
+            // The timer box itself is the fullscreen target. This is more
+            // reliable on Android than fullscreening the whole document.
+            timerBox.classList.add("timer-fullscreen-active");
+            document.body.classList.add("timer-native-fullscreen");
+
+            try {
+                if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+                    if (timerBox.requestFullscreen) {
+                        await timerBox.requestFullscreen({ navigationUI: "hide" });
+                    } else if (timerBox.webkitRequestFullscreen) {
+                        timerBox.webkitRequestFullscreen();
+                    }
+                }
+            } catch (error) {
+                console.warn("Browser fullscreen was blocked:", error);
+                // CSS fullscreen remains active even when native fullscreen is blocked.
+            }
+
+            timerFullscreenBtn.textContent = "⤢";
+            timerFullscreenBtn.setAttribute("aria-label", "Restore timer");
+            timerFullscreenBtn.setAttribute("title", "Exit fullscreen");
+        } else {
+            try {
+                if (document.fullscreenElement && document.exitFullscreen) {
+                    await document.exitFullscreen();
+                } else if (document.webkitFullscreenElement && document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                }
+            } catch (error) {
+                console.warn("Could not exit browser fullscreen:", error);
+            }
+
+            timerBox.classList.remove("timer-fullscreen-active");
+            document.body.classList.remove("timer-native-fullscreen");
+            timerFullscreenBtn.textContent = "⛶";
+            timerFullscreenBtn.setAttribute("aria-label", "Expand timer");
+            timerFullscreenBtn.setAttribute("title", "Expand timer");
+        }
+    }
+
+    timerFullscreenBtn.addEventListener("click", async () => {
+        const active = timerBox.classList.contains("timer-fullscreen-active");
+        await setTimerBoxFullscreen(!active);
+    });
+
+    // If the user exits native fullscreen using the browser/Android controls,
+    // keep the timer UI synchronized.
+    function syncTimerFullscreenState() {
+        const nativeFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
+        if (!nativeFullscreen && timerBox.classList.contains("timer-fullscreen-active")) {
+            timerBox.classList.remove("timer-fullscreen-active");
+            document.body.classList.remove("timer-native-fullscreen");
+            timerFullscreenBtn.textContent = "⛶";
+            timerFullscreenBtn.setAttribute("aria-label", "Expand timer");
+            timerFullscreenBtn.setAttribute("title", "Expand timer");
+        }
+    }
+
+    document.addEventListener("fullscreenchange", syncTimerFullscreenState);
+    document.addEventListener("webkitfullscreenchange", syncTimerFullscreenState);
+
+    hideCameraToggle.addEventListener("change", async () => {
+        app.classList.toggle("camera-hidden", hideCameraToggle.checked);
+        // Always go through the one settings writer that merges with what's
+        // already saved (hideCamera + both alarm toggles). A writer that
+        // overwrote the whole key with just one field used to silently wipe
+        // out the other saved settings whenever this toggle changed.
+        persistAlarmSetting();
+
+        if (hideCameraToggle.checked) {
+            try {
+                if (!document.fullscreenElement &&
+                    document.documentElement.requestFullscreen) {
+                    await document.documentElement.requestFullscreen();
+                }
+            } catch (error) {
+                console.warn("Browser fullscreen was blocked:", error);
+                showError(
+                    "Browser blocked fullscreen. Use the browser menu and choose Fullscreen."
+                );
+            }
+        } else {
+            try {
+                if (document.fullscreenElement && document.exitFullscreen) {
+                    await document.exitFullscreen();
+                } else if (
+                    document.webkitFullscreenElement &&
+                    document.webkitExitFullscreen
+                ) {
+                    document.webkitExitFullscreen();
+                }
+            } catch (error) {
+                console.warn("Could not exit browser fullscreen:", error);
+            }
+        }
+    });
+
+
+    async function handleAlarmSettingsChange() {
+        persistAlarmSetting();
+        const anyEnabled = alarmToggle.checked || humanDetectedAlarmToggle.checked;
+
+        if (anyEnabled) {
+            await primeAlarmAudio();
+
+            // Re-evaluate the current state immediately after changing a toggle.
+            if (isDetecting) {
+                if (isPresent && humanDetectedAlarmToggle.checked) {
+                    if (!alarmPlaying) startAlarmLoop("detected");
+                    else if (alarmReason !== "detected") { stopAlarmLoop(); startAlarmLoop("detected"); }
+                } else if (!isPresent && !presenceFirstSeenTime && alarmToggle.checked && personWasSeenThisSession) {
+                    if (!alarmPlaying) startAlarmLoop("missing");
+                    else if (alarmReason !== "missing") { stopAlarmLoop(); startAlarmLoop("missing"); }
+                } else if (alarmPlaying) {
+                    stopAlarmLoop();
+                }
+            }
+
+            updateAlarmStatus(
+                alarmPlaying
+                    ? (alarmReason === "detected" ? "🚨 ALARM PLAYING • Human detected" : "🚨 ALARM PLAYING • Person missing")
+                    : "Alarms ON • waiting for detection",
+                alarmPlaying
+            );
+        } else {
+            stopAlarmLoop();
+        }
+    }
+
+    humanDetectedAlarmToggle.addEventListener("change", handleAlarmSettingsChange);
+    alarmToggle.addEventListener("change", handleAlarmSettingsChange);
+
+    alarmAudio.addEventListener("ended", async () => {
+        // loop=true should prevent this, but explicitly restart as a safety net.
+        // Restart only while the missing-person condition is still active.
+        if (alarmPlaying && isDetecting && ((alarmReason === "missing" && alarmToggle.checked && personWasSeenThisSession && !isPresent && !presenceFirstSeenTime) || (alarmReason === "detected" && humanDetectedAlarmToggle.checked && isPresent))) {
+            try {
+                alarmAudio.loop = true;
+                alarmAudio.currentTime = 0;
+                alarmAudio.volume = ALARM_MAX_VOLUME;
+                await alarmAudio.play();
+                alarmPlaying = true;
+                updateAlarmStatus("🚨 ALARM PLAYING • Person missing", true);
+            } catch (error) {
+                alarmPlaying = false;
+                console.warn("Alarm safety restart failed:", error);
+            }
+        }
+    });
+
+    alarmAudio.addEventListener("error", () => {
+        alarmPlaying = false;
+        updateAlarmStatus("Alarm ON • alarm.mp3 could not be loaded");
+    });
+
+    startStopBtn.addEventListener("click", () => {
+        if (isDetecting) stopDetection();
+        else startDetection();
+    });
+
+    saveBtn.addEventListener("click", saveCurrentTimer);
+    resetBtn.addEventListener("click", resetTimer);
+
+    // -------------------------------------------------------------------------
+    // Data backup / restore
+    // -------------------------------------------------------------------------
+    // The app keeps its persistent data under the presenceTimer* namespace.
+    // Exporting that namespace makes the backup future-proof: new app data
+    // using the same prefix will automatically be included.
+    const BACKUP_FORMAT = "presence-timer-backup";
+    const BACKUP_VERSION = 1;
+    const APP_STORAGE_PREFIX = "presenceTimer";
+    const IMPORTED_BACKUPS_KEY = "presenceTimerImportedBackups";
+    const MAX_IMPORT_FILE_BYTES = 10 * 1024 * 1024;
+
+    function collectAppStorage() {
+        const storage = {};
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (!key || !key.startsWith(APP_STORAGE_PREFIX)) continue;
+            const value = localStorage.getItem(key);
+            if (value !== null) storage[key] = value;
+        }
+        return storage;
+    }
+
+    function prepareBackupStorage() {
+        // Flush current in-memory values first so Export Data represents the
+        // current state, not merely the last automatic write.
+        saveTimerState();
+        persistRecords();
+        persistDailyStudy();
+        persistAlarmSetting();
+        return collectAppStorage();
+    }
+
+    function makeBackupId(backup) {
+        // Deterministic lightweight fingerprint so importing the same backup
+        // twice does not double-count the timer/history.
+        const input = JSON.stringify(backup.storage || {});
+        let hash = 2166136261;
+        for (let i = 0; i < input.length; i++) {
+            hash ^= input.charCodeAt(i);
+            hash = Math.imul(hash, 16777619);
+        }
+        return (hash >>> 0).toString(16).padStart(8, "0");
+    }
+
+    function loadImportedBackupIds() {
+        try {
+            const parsed = JSON.parse(localStorage.getItem(IMPORTED_BACKUPS_KEY) || "[]");
+            return Array.isArray(parsed) ? parsed.filter(id => typeof id === "string") : [];
+        } catch {
+            return [];
+        }
+    }
+
+    function rememberImportedBackup(id) {
+        try {
+            const ids = loadImportedBackupIds();
+            if (!ids.includes(id)) ids.push(id);
+            // Keep the list bounded while retaining the newest fingerprints.
+            localStorage.setItem(IMPORTED_BACKUPS_KEY, JSON.stringify(ids.slice(-50)));
+        } catch {}
+    }
+
+    function exportAppData() {
+        try {
+            const backup = {
+                format: BACKUP_FORMAT,
+                version: BACKUP_VERSION,
+                app: "Presence Timer",
+                exportedAt: new Date().toISOString(),
+                storage: prepareBackupStorage()
+            };
+            backup.backupId = makeBackupId(backup);
+
+            const json = JSON.stringify(backup, null, 2);
+            const blob = new Blob([json], { type: "application/json;charset=utf-8" });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+            link.href = url;
+            link.download = `presence-timer-backup-${stamp}.json`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+            updateStatus("🟢 Data backup exported successfully", "running");
+        } catch (error) {
+            console.error("Export failed:", error);
+            showError("Could not export your data: " + (error?.message || "Unknown error"));
+        }
+    }
+
+    function validateBackupObject(backup) {
+        if (!backup || typeof backup !== "object" || Array.isArray(backup)) {
+            throw new Error("The selected file is not a valid backup.");
+        }
+        if (backup.format !== BACKUP_FORMAT) {
+            throw new Error("This file is not a Presence Timer backup.");
+        }
+        if (!Number.isInteger(backup.version) || backup.version < 1 || backup.version > BACKUP_VERSION) {
+            throw new Error("This backup version is not supported by this app.");
+        }
+        if (!backup.storage || typeof backup.storage !== "object" || Array.isArray(backup.storage)) {
+            throw new Error("The backup does not contain valid app data.");
+        }
+
+        if (backup.backupId !== undefined && (typeof backup.backupId !== "string" || backup.backupId.length > 100)) {
+            throw new Error("The backup identifier is invalid.");
+        }
+
+        const entries = Object.entries(backup.storage);
+        if (entries.length > 100) {
+            throw new Error("The backup contains too many data entries.");
+        }
+
+        for (const [key, value] of entries) {
+            if (!key.startsWith(APP_STORAGE_PREFIX)) {
+                throw new Error("The backup contains an invalid data key.");
+            }
+            if (typeof value !== "string") {
+                throw new Error(`Backup value for ${key} is invalid.`);
+            }
+        }
+
+        return backup;
+    }
+
+    async function importAppDataFromFile(file) {
+        if (!file) return;
+        if (file.size > MAX_IMPORT_FILE_BYTES) {
+            showError("This backup file is too large. Maximum supported size is 10 MB.");
+            return;
+        }
+
+        try {
+            const text = await file.text();
+            const backup = validateBackupObject(JSON.parse(text));
+            const backupId = backup.backupId || makeBackupId(backup);
+            const importedIds = loadImportedBackupIds();
+            if (importedIds.includes(backupId)) {
+                window.alert("This backup has already been imported. Nothing was added again.");
+                return;
+            }
+
+            const exportedAt = backup.exportedAt ? new Date(backup.exportedAt) : null;
+            const exportedLabel = exportedAt && !Number.isNaN(exportedAt.getTime())
+                ? exportedAt.toLocaleString()
+                : "an earlier time";
+
+            const confirmed = window.confirm(
+                `Merge the Presence Timer backup from ${exportedLabel}?\n\n` +
+                "Your CURRENT timer and study data will be kept. The backup timer, daily study history, and saved timer records will be ADDED to your current data. App settings will stay as they are now.\n\n" +
+                "This prevents your current data from being erased. Continue?"
+            );
+            if (!confirmed) return;
+
+            // Stop live activity before changing the timer so an active session
+            // cannot write stale values over the merged result.
+            if (isDetecting) stopDetection();
+            stopAlarmLoop();
+
+            // Flush the current in-memory state before reading its persisted copy.
+            saveTimerState();
+            persistRecords();
+            persistDailyStudy();
+
+            const currentTimerState = (() => {
+                try {
+                    return JSON.parse(localStorage.getItem(TIMER_STATE_KEY) || "{}") || {};
+                } catch { return {}; }
+            })();
+            const backupTimerState = (() => {
+                try {
+                    const raw = backup.storage[TIMER_STATE_KEY];
+                    return raw ? (JSON.parse(raw) || {}) : {};
+                } catch { return {}; }
+            })();
+
+            // 1) Merge the timer totals. Unsaved time from the backup remains
+            // unsaved after the merge, so it can still be captured by Save Timer.
+            const currentAccumulated = Math.max(0, Number(currentTimerState.accumulatedTime) || 0);
+            const backupAccumulated = Math.max(0, Number(backupTimerState.accumulatedTime) || 0);
+            const currentSavedThrough = Math.min(
+                currentAccumulated,
+                Math.max(0, Number(currentTimerState.savedThroughTime) || 0)
+            );
+            const backupSavedThrough = Math.min(
+                backupAccumulated,
+                Math.max(0, Number(backupTimerState.savedThroughTime) || 0)
+            );
+
+            const mergedAccumulated = currentAccumulated + backupAccumulated;
+            const mergedSavedThrough = Math.min(
+                mergedAccumulated,
+                currentSavedThrough + backupSavedThrough
+            );
+
+            accumulatedTime = mergedAccumulated;
+            savedThroughTime = mergedSavedThrough;
+            isPresent = false;
+            sessionStartTime = 0;
+            presenceFirstSeenTime = 0;
+            presenceLastSeenTime = 0;
+            recentWeakFaceFrames.length = 0;
+            dailyCreditCursor = 0;
+
+            localStorage.setItem(TIMER_STATE_KEY, JSON.stringify({
+                accumulatedTime: mergedAccumulated,
+                savedThroughTime: mergedSavedThrough,
+                isPresent: false,
+                sessionStartTime: 0,
+                savedAt: Date.now()
+            }));
+
+            // 2) Merge automatic daily study time by calendar date.
+            const backupDaily = (() => {
+                try {
+                    const raw = backup.storage[DAILY_STUDY_KEY];
+                    const parsed = raw ? JSON.parse(raw) : {};
+                    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+                } catch { return {}; }
+            })();
+
+            for (const [dateKey, valueRaw] of Object.entries(backupDaily)) {
+                if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) continue;
+                const value = Math.max(0, Number(valueRaw) || 0);
+                if (!value) continue;
+                dailyStudy[dateKey] = Math.max(0, Number(dailyStudy[dateKey]) || 0) + value;
+            }
+            persistDailyStudy();
+
+            // 3) Merge saved timer records. IDs make the operation idempotent.
+            const existingIds = new Set(records.map(record => String(record?.id || "")));
+            const backupRecords = (() => {
+                try {
+                    const raw = backup.storage[STORAGE_KEY];
+                    const parsed = raw ? JSON.parse(raw) : [];
+                    return Array.isArray(parsed) ? parsed : [];
+                } catch { return []; }
+            })();
+
+            let addedRecords = 0;
+            for (const record of backupRecords) {
+                if (!record || typeof record !== "object") continue;
+                const id = String(record.id || "");
+                const durationMs = Math.max(0, Number(record.durationMs) || 0);
+                const timestamp = Number(record.timestamp) || 0;
+                if (!id || existingIds.has(id) || durationMs <= 0 || !timestamp) continue;
+                records.push({
+                    ...record,
+                    id,
+                    timestamp,
+                    durationMs
+                });
+                existingIds.add(id);
+                addedRecords++;
+            }
+            records.sort((a, b) => (Number(a.timestamp) || 0) - (Number(b.timestamp) || 0));
+            persistRecords();
+
+            // Keep the current device's settings. The backup is a data merge,
+            // not a settings replacement.
+            rememberImportedBackup(backupId);
+
+            lastPersistedDisplaySecond = -1;
+            renderStats();
+            renderDailyStudy();
+            updateTimerDisplay();
+            updateStatus(
+                `🟢 Backup merged • +${formatTime(backupAccumulated)} timer • ${addedRecords} new record${addedRecords === 1 ? "" : "s"}`,
+                "running"
+            );
+            hideError();
+        } catch (error) {
+            console.error("Import failed:", error);
+            showError("Could not import this backup: " + (error?.message || "Unknown error"));
+        } finally {
+            importDataInput.value = "";
+        }
+    }
+
+    function refreshStats() {
+        // Refresh ONLY Detection totals:
+        // Today, This month, Saved records and All saved.
+        records = loadRecords();
+        renderStats();
+    }
+
+    function refreshHistory() {
+        // Refresh ONLY Saved timer records.
+        records = loadRecords();
+        renderStats();
+    }
+
+    statsRefreshBtn.addEventListener("click", refreshStats);
+    resetAllStudyBtn.addEventListener("click", resetAllStudyData);
+    exportDataBtn.addEventListener("click", exportAppData);
+    importDataBtn.addEventListener("click", () => importDataInput.click());
+    importDataInput.addEventListener("change", event => {
+        const file = event.target.files?.[0];
+        importAppDataFromFile(file);
+    });
+    historyRefreshBtn.addEventListener("click", refreshHistory);
+    dailyRefreshBtn.addEventListener("click", () => {
+        dailyStudy = loadDailyStudy();
+        renderDailyStudy();
+        renderStats();
+    });
+
+    clearHistoryBtn.addEventListener("click", () => {
+        // Clear ONLY saved timer records.
+        records = [];
+        persistRecords();
+        renderStats();
+        updateStatus("⚪ Saved timer records cleared", "idle");
+    });
+
+    // PWA install support. Android/Chrome exposes beforeinstallprompt;
+    // other browsers may still support installation through their browser menu.
+    function showInstallHelp() {
+        if (window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone) {
+            installAppBtn.style.display = "none";
+            updateStatus("🟢 Study Tracker is already installed", "idle");
+            return;
+        }
+        if (deferredInstallPrompt) {
+            deferredInstallPrompt.prompt();
+            deferredInstallPrompt.userChoice.catch(() => {}).finally(() => {
+                deferredInstallPrompt = null;
+            });
+            return;
+        }
+        alert("To install: open your browser menu and choose 'Add to Home screen' or 'Install app'. First open the app online so offline AI files can be cached.");
+    }
+
+    window.addEventListener("beforeinstallprompt", event => {
+        event.preventDefault();
+        deferredInstallPrompt = event;
+        installAppBtn.style.display = "flex";
+    });
+
+    installAppBtn.addEventListener("click", showInstallHelp);
+
+    window.addEventListener("appinstalled", () => {
+        deferredInstallPrompt = null;
+        installAppBtn.style.display = "none";
+        updateStatus("🟢 App installed on this device", "idle");
+    });
+
+    developerContactBtn.addEventListener("click", () => {
+        const phone = "918399964358";
+        const message = encodeURIComponent(
+            "Hello Developer, I need help with Presence Timer."
+        );
+        window.location.href = `https://wa.me/${phone}?text=${message}`;
+    });
+
+    // Don't invite someone to install an app they're already running installed.
+    if (window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone) {
+        installAppBtn.style.display = "none";
+    }
+
+    const savedSettings = loadSettings();
+    hideCameraToggle.checked = !!savedSettings.hideCamera;
+    alarmToggle.checked = !!savedSettings.alarmEnabled;
+    humanDetectedAlarmToggle.checked = !!savedSettings.humanDetectedAlarmEnabled;
+    app.classList.toggle("camera-hidden", hideCameraToggle.checked);
+    updateAlarmStatus(
+        (alarmToggle.checked || humanDetectedAlarmToggle.checked)
+            ? "Alarms ON • waiting for detection"
+            : "Alarms OFF • ready"
+    );
+
+    loadTimerState();
+    dailyStudy = loadDailyStudy();
+    // Sanitize local data once on startup so a corrupted entry cannot break totals.
+    for (const key of Object.keys(dailyStudy)) {
+        const value = Number(dailyStudy[key]);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(key) || !Number.isFinite(value) || value < 0) delete dailyStudy[key];
+        else dailyStudy[key] = Math.floor(value);
+    }
+    persistDailyStudy();
+    renderStats();
+    renderDailyStudy();
+    updateTimerDisplay();
+    updateCurrentClock();
+    // Keep the current clock and midnight countdown live even when camera detection is stopped.
+    setInterval(() => {
+        const now = Date.now();
+        updateCurrentClock(new Date(now));
+        updateDayLeftDisplay(now);
+    }, 250);
+    updateStatus("⚪ Ready — tap Allow Camera & Start", "idle");
+
+    // Keep the timer snapshot current when the browser backgrounds the PWA
+    // or removes its page. The service worker keeps the app shell installable,
+    // but browser security rules do not allow camera/ML detection to continue
+    // reliably after the page is suspended.
+    document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "hidden") {
+            // The camera cannot reliably keep detecting once the tab is
+            // backgrounded, so close out the session cleanly right now
+            // (crediting only the time up to this instant) instead of
+            // leaving isPresent stuck "on". Left stuck on, the moment the
+            // app is reopened later would retroactively count the entire
+            // time away as study time even though nobody was watched.
+            endPresenceSession(Date.now());
+            recentWeakFaceFrames.length = 0;
+            stopAlarmLoop();
+            saveTimerState();
+        } else {
+            // Returning to the foreground. If detection was running, make
+            // sure the camera is actually still alive first — Android
+            // commonly kills the camera track while a tab is backgrounded,
+            // which would otherwise leave the app silently "running" with
+            // a dead feed and nothing being tracked.
+            if (isDetecting) {
+                const liveTrack = stream?.getVideoTracks?.()[0];
+                if (!liveTrack || liveTrack.readyState === "ended") {
+                    stopDetection();
+                    showError('Camera was stopped while the app was in the background. Tap "Allow Camera & Start" to resume tracking.');
+                    return;
+                }
+            }
+            updateTimerDisplay();
+        }
+    });
+
+    window.addEventListener("pagehide", () => {
+        if (isPresent && isDetecting) creditActiveStudy(Date.now());
+        saveTimerState();
+    });
+    window.addEventListener("beforeunload", () => {
+        if (isPresent && isDetecting) creditActiveStudy(Date.now());
+        saveTimerState();
+    });
+
+    if ("serviceWorker" in navigator && window.isSecureContext) {
+        navigator.serviceWorker.register("./sw.js", { updateViaCache: "none" }).then(() => {
+            waitForOfflineCacheReady();
+        }).catch(error => {
+            console.warn("Service worker registration failed:", error);
+            document.getElementById('offlineStatus').textContent = 'Offline cache unavailable in this browser.';
+        });
+    } else {
+        document.getElementById('offlineStatus').textContent = 'Offline mode requires an installed HTTPS PWA.';
+    }
+</script>
+</body>
+</html>
+
